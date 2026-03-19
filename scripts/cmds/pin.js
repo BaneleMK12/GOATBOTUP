@@ -107,8 +107,8 @@ module.exports = {
   config: {
     name: "pinterest",
     aliases: ["Pinterest", "pin"],
-    version: "2.2",
-    author: "Mahi--",
+    version: "2.3",
+    author: "Charles MK",
     countDown: 10,
     role: 0,
     shortDescription: "Search Pinterest for images",
@@ -119,7 +119,8 @@ module.exports = {
         "• If count is used, it sends images directly.\n" +
         "• If no count, it shows an interactive canvas.\n" +
         "• Example: {pn} cute cat -5 (direct send)\n" +
-        "• Example: {pn} anime wallpaper (canvas view)"
+        "• Example: {pn} anime wallpaper (canvas view)\n" +
+        "• Reply with multiple numbers to get multiple images: 2 5 8 3"
     }
   },
 
@@ -172,7 +173,7 @@ module.exports = {
         const { outputPath: canvasPath, displayedMap } = await generatePinterestCanvas(imagesForPage1, query, 1, totalPages);
 
         const sentMessage = await message.reply({
-          body: `🖼️ Found ${allImageUrls.length} images for "${query}".\nReply with a number (shown on canvas) to get that image, or "next" for more.`,
+          body: `🖼️ Found ${allImageUrls.length} images for "${query}".\nReply with one or more numbers (e.g., "2 5 8") to get those images, or "next" for more.`,
           attachment: fs.createReadStream(canvasPath)
         });
 
@@ -230,7 +231,7 @@ module.exports = {
         const { outputPath: canvasPath, displayedMap: nextDisplayedMap } = await generatePinterestCanvas(imagesForNextPage, query, nextPage, totalPages);
 
         const sentMessage = await message.reply({
-          body: `🖼️ Page ${nextPage}/${totalPages}.\nReply with a number (shown on canvas) to get that image, or "next" for more.`,
+          body: `🖼️ Page ${nextPage}/${totalPages}.\nReply with one or more numbers (e.g., "2 5 8") to get those images, or "next" for more.`,
           attachment: fs.createReadStream(canvasPath)
         });
         fs.unlink(canvasPath, (err) => {
@@ -252,30 +253,58 @@ module.exports = {
         });
 
       } else {
-        const number = parseInt(input, 10);
-        if (!isNaN(number) && number > 0) {
-          if (!Array.isArray(displayedMap) || typeof displayCount !== 'number') {
-            return message.reply("This page's images aren't available anymore. Please run the command again or type 'next'.");
-          }
+        // Parse multiple numbers from input (e.g., "2 5 8 3 9 4 9")
+        const numbers = input.split(/\s+/).map(n => parseInt(n, 10)).filter(n => !isNaN(n) && n > 0);
+        
+        if (numbers.length === 0) {
+          return message.reply(`Reply with one or more numbers (from the canvas) to get those images, or "next" for more pages.`);
+        }
 
-          if (number > displayCount) {
-            return message.reply(`Invalid number. The current canvas shows only ${displayCount} image(s). Choose a number from 1 to ${displayCount}, or type "next" to load more images.`);
-          }
+        if (!Array.isArray(displayedMap) || typeof displayCount !== 'number') {
+          return message.reply("This page's images aren't available anymore. Please run the command again or type 'next'.");
+        }
 
+        // Validate all numbers and collect valid image URLs
+        const invalidNumbers = numbers.filter(num => num > displayCount);
+        if (invalidNumbers.length > 0) {
+          return message.reply(`Invalid number(s): ${invalidNumbers.join(', ')}. The current canvas shows only ${displayCount} image(s). Choose numbers from 1 to ${displayCount}.`);
+        }
+
+        // Remove duplicates while preserving order
+        const uniqueNumbers = [...new Set(numbers)];
+        
+        // Collect image URLs
+        const imageUrls = [];
+        const failedNumbers = [];
+        
+        for (const number of uniqueNumbers) {
           const originalIndex = displayedMap[number - 1];
           if (originalIndex == null || originalIndex < 0 || originalIndex >= allImageUrls.length) {
-            return message.reply(`Could not find that image. Please try again or request a different number.`);
+            failedNumbers.push(number);
+          } else {
+            imageUrls.push(allImageUrls[originalIndex]);
           }
-          const imageUrl = allImageUrls[originalIndex];
-          const stream = await getStreamFromURL(imageUrl).catch(() => null);
-          if (!stream) return message.reply("Failed to fetch the requested image.");
-          await message.reply({
-            body: `Image #${number} for query "${query}":`,
-            attachment: stream
-          });
-        } else {
-          return message.reply(`Reply with a number (from the canvas) to get that image, or "next" for more pages.`);
         }
+
+        if (failedNumbers.length > 0) {
+          return message.reply(`Could not find image(s) for number(s): ${failedNumbers.join(', ')}. Please try again.`);
+        }
+
+        // Fetch all images
+        const processingMessage = await message.reply(`📥 Fetching ${imageUrls.length} image(s)...`);
+        const streams = await Promise.all(imageUrls.map(url => getStreamFromURL(url).catch(() => null)));
+        const validStreams = streams.filter(s => s);
+
+        await message.unsend(processingMessage.messageID).catch(() => { });
+
+        if (validStreams.length === 0) {
+          return message.reply("Failed to fetch the requested images. Please try again.");
+        }
+
+        await message.reply({
+          body: `🖼️ Here ${validStreams.length === 1 ? 'is' : 'are'} ${validStreams.length} image(s) (#${uniqueNumbers.join(', #')}) for query "${query}":`,
+          attachment: validStreams
+        });
       }
     } catch (error) {
       console.error(error);

@@ -1,123 +1,89 @@
-const axios = require("axios");
-const moment = require("moment-timezone");
-const Canvas = require("canvas");
-const fs = require("fs-extra");
-
-Canvas.registerFont(
-	__dirname + "/assets/font/BeVietnamPro-SemiBold.ttf", {
-	family: "BeVietnamPro-SemiBold"
-});
-Canvas.registerFont(
-	__dirname + "/assets/font/BeVietnamPro-Regular.ttf", {
-	family: "BeVietnamPro-Regular"
-});
-
-function convertFtoC(F) {
-	return Math.floor((F - 32) / 1.8);
-}
-function formatHours(hours) {
-	return moment(hours).tz("Asia/Ho_Chi_Minh").format("HH[h]mm[p]");
-}
+const axios = require('axios');
 
 module.exports = {
-	config: {
-		name: "weather",
-		version: "1.2",
-		author: "NTKhang",
-		countDown: 5,
-		role: 0,
-		description: {
-			vi: "xem dự báo thời tiết hiện tại và 5 ngày sau",
-			en: "view the current and next 5 days weather forecast"
-		},
-		category: "other",
-		guide: {
-			vi: "{pn} <địa điểm>",
-			en: "{pn} <location>"
-		},
-		envGlobal: {
-			weatherApiKey: "d7e795ae6a0d44aaa8abb1a0a7ac19e4"
-		}
-	},
+  config: {
+    name: "weather",
+    aliases: ["w", "forecast"],
+    version: "1.0",
+    author: "CharlesMK",
+    countDown: 5,
+    role: 0,
+    description: {
+      en: "Get current weather for any city"
+    },
+    category: "utility",
+    guide: {
+      en: "{pn} <city name>\nExample: {pn} Durban\n{pn} New York\n{pn} Tokyo"
+    }
+  },
 
-	langs: {
-		vi: {
-			syntaxError: "Vui lòng nhập địa điểm",
-			notFound: "Không thể tìm thấy địa điểm: %1",
-			error: "Đã xảy ra lỗi: %1",
-			today: "Thời tiết hôm nay: %1\n%2\n🌡 Nhiệt độ thấp nhất - cao nhất %3°C - %4°C\n🌡 Nhiệt độ cảm nhận được %5°C - %6°C\n🌅 Mặt trời mọc %7\n🌄 Mặt trời lặn %8\n🌃 Mặt trăng mọc %9\n🏙️ Mặt trăng lặn %10\n🌞 Ban ngày: %11\n🌙 Ban đêm: %12"
-		},
-		en: {
-			syntaxError: "Please enter a location",
-			notFound: "Location not found: %1",
-			error: "An error has occurred: %1",
-			today: "Today's weather: %1\n%2\n🌡 Low - high temperature %3°C - %4°C\n🌡 Feels like %5°C - %6°C\n🌅 Sunrise %7\n🌄 Sunset %8\n🌃 Moonrise %9\n🏙️ Moonset %10\n🌞 Day: %11\n🌙 Night: %12"
-		}
-	},
+  onStart: async function ({ args, message }) {
+    if (args.length === 0) {
+      return message.reply("❌ Please provide a city name.\nExample: +weather Durban");
+    }
 
-	onStart: async function ({ args, message, envGlobal, getLang }) {
-		const apikey = envGlobal.weatherApiKey;
+    const city = args.join(" ");
 
-		const area = args.join(" ");
-		if (!area)
-			return message.reply(getLang("syntaxError"));
-		let areaKey, dataWeather, areaName;
+    try {
+      // Using wttr.in API (free, no API key needed)
+      const response = await axios.get(`https://wttr.in/${encodeURIComponent(city)}?format=j1`, {
+        timeout: 10000
+      });
 
-		try {
-			const response = (await axios.get(`https://api.accuweather.com/locations/v1/cities/search.json?q=${encodeURIComponent(area)}&apikey=${apikey}&language=vi-vn`)).data;
-			if (response.length == 0)
-				return message.reply(getLang("notFound", area));
-			const data = response[0];
-			areaKey = data.Key;
-			areaName = data.LocalizedName;
-		}
-		catch (err) {
-			return message.reply(getLang("error", err.response.data.Message));
-		}
+      const data = response.data;
+      const current = data.current_condition[0];
+      const location = data.nearest_area[0];
 
-		try {
-			dataWeather = (await axios.get(`http://api.accuweather.com/forecasts/v1/daily/10day/${areaKey}?apikey=${apikey}&details=true&language=vi`)).data;
-		}
-		catch (err) {
-			return message.reply(`✗ Đã xảy ra lỗi: ${err.response.data.Message}`);
-		}
+      const cityName = location.areaName[0].value;
+      const country = location.country[0].value;
+      const temp = current.temp_C;
+      const feelsLike = current.FeelsLikeC;
+      const condition = current.weatherDesc[0].value;
+      const humidity = current.humidity;
+      const windSpeed = current.windspeedKmph;
+      const windDir = current.winddir16Point;
+      const pressure = current.pressure;
+      const visibility = current.visibility;
+      const uvIndex = current.uvIndex;
 
-		const dataWeatherDaily = dataWeather.DailyForecasts;
-		const dataWeatherToday = dataWeatherDaily[0];
-		const msg = getLang("today", areaName, dataWeather.Headline.Text, convertFtoC(dataWeatherToday.Temperature.Minimum.Value), convertFtoC(dataWeatherToday.Temperature.Maximum.Value), convertFtoC(dataWeatherToday.RealFeelTemperature.Minimum.Value), convertFtoC(dataWeatherToday.RealFeelTemperature.Maximum.Value), formatHours(dataWeatherToday.Sun.Rise), formatHours(dataWeatherToday.Sun.Set), formatHours(dataWeatherToday.Moon.Rise), formatHours(dataWeatherToday.Moon.Set), dataWeatherToday.Day.LongPhrase, dataWeatherToday.Night.LongPhrase);
+      // Weather emoji based on condition
+      let weatherEmoji = "🌤️";
+      const condLower = condition.toLowerCase();
+      if (condLower.includes("clear") || condLower.includes("sunny")) weatherEmoji = "☀️";
+      else if (condLower.includes("cloud")) weatherEmoji = "☁️";
+      else if (condLower.includes("rain") || condLower.includes("drizzle")) weatherEmoji = "🌧️";
+      else if (condLower.includes("storm") || condLower.includes("thunder")) weatherEmoji = "⛈️";
+      else if (condLower.includes("snow")) weatherEmoji = "❄️";
+      else if (condLower.includes("fog") || condLower.includes("mist")) weatherEmoji = "🌫️";
 
-		const bg = await Canvas.loadImage(__dirname + "/assets/image/bgWeather.jpg");
-		const { width, height } = bg;
-		const canvas = Canvas.createCanvas(width, height);
-		const ctx = canvas.getContext("2d");
-		ctx.drawImage(bg, 0, 0, width, height);
-		let X = 100;
-		ctx.fillStyle = "#ffffff";
-		const data = dataWeather.DailyForecasts.slice(0, 7);
-		for (const item of data) {
-			const icon = await Canvas.loadImage("http://vortex.accuweather.com/adc2010/images/slate/icons/" + item.Day.Icon + ".svg");
-			ctx.drawImage(icon, X, 210, 80, 80);
+      let responseMsg = `${weatherEmoji} 𝗪𝗘𝗔𝗧𝗛𝗘𝗥 𝗥𝗘𝗣𝗢𝗥𝗧\n`;
+      responseMsg += "━━━━━━━━━━━━━━━━━━━━\n\n";
+      responseMsg += `📍 ${cityName}, ${country}\n\n`;
+      responseMsg += `🌡️ Temperature: ${temp}°C\n`;
+      responseMsg += `🤔 Feels Like: ${feelsLike}°C\n`;
+      responseMsg += `☁️ Condition: ${condition}\n`;
+      responseMsg += `💧 Humidity: ${humidity}%\n`;
+      responseMsg += `💨 Wind: ${windSpeed} km/h ${windDir}\n`;
+      responseMsg += `🔽 Pressure: ${pressure} mb\n`;
+      responseMsg += `👁️ Visibility: ${visibility} km\n`;
+      responseMsg += `☀️ UV Index: ${uvIndex}\n`;
 
-			ctx.font = "30px BeVietnamPro-SemiBold";
-			const maxC = `${convertFtoC(item.Temperature.Maximum.Value)}°C `;
-			ctx.fillText(maxC, X, 366);
+      return message.reply(responseMsg);
 
-			ctx.font = "30px BeVietnamPro-Regular";
-			const minC = String(`${convertFtoC(item.Temperature.Minimum.Value)}°C`);
-			const day = moment(item.Date).format("DD");
-			ctx.fillText(minC, X, 445);
-			ctx.fillText(day, X + 20, 140);
+    } catch (error) {
+      console.error("Weather error:", error);
 
-			X += 135;
-		}
+      if (error.response?.status === 404) {
+        return message.reply(`❌ City "${city}" not found.\n\nPlease check the spelling and try again.`);
+      }
 
-		const pathSaveImg = `${__dirname}/tmp/weather_${areaKey}.jpg`;
-		fs.writeFileSync(pathSaveImg, canvas.toBuffer());
-
-		return message.reply({
-			body: msg,
-			attachment: fs.createReadStream(pathSaveImg)
-		}, () => fs.unlinkSync(pathSaveImg));
-
-	}
-};
+      return message.reply(
+        `❌ Unable to fetch weather data.\n\n` +
+        `This could be due to:\n` +
+        `- Invalid city name\n` +
+        `- API temporarily unavailable\n` +
+        `- Network issues\n\n` +
+        `Please try again later.`
+      );
+    }
+			   }

@@ -1,0 +1,6 @@
+[
+  { "id": 1, "name": "Steel Sword", "price": 5000, "damage": 20, "type": "sword" },
+  { "id": 2, "name": "Magic Wand", "price": 12000, "damage": 35, "type": "magic" },
+  { "id": 3, "name": "Mecha Fist", "price": 50000, "damage": 80, "type": "mecha" },
+  { "id": 4, "name": "Excalibur", "price": 250000, "damage": 200, "type": "sword" }
+]

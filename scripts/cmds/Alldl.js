@@ -1,162 +1,195 @@
 const axios = require('axios');
-const fs = require('fs-extra');
-const os = require('os');
+const fs = require('fs');
 const path = require('path');
-const { pipeline } = require('stream/promises');
 
 const supportedDomains = [
-  { domain: 'facebook.com' },
-  { domain: 'instagram.com' },
-  { domain: 'youtube.com' },
-  { domain: 'youtu.be' },
-  { domain: 'pinterest.com' },
-  { domain: 'tiktok.com' },
-  { domain: 'x.com' },
-  { domain: 'twitter.com' }
+  { domain: 'facebook.com', cookieFile: null },
+  { domain: 'instagram.com', cookieFile: 'insta.txt' },
+  { domain: 'youtube.com', cookieFile: 'yt.txt' },
+  { domain: 'youtu.be', cookieFile: 'yt.txt' },
+  { domain: 'pinterest.com', cookieFile: null },
+  { domain: "tiktok.com", cookieFile: null },
 ];
 
 function getMainDomain(url) {
   try {
     const hostname = new URL(url).hostname;
-    if (hostname === 'youtu.be') return 'youtube.com';
+    if (hostname === 'youtu.be') {
+      return 'youtube.com';
+    }
     const parts = hostname.split('.');
-    return parts.length > 2 ? parts.slice(-2).join('.') : hostname;
+    if (parts.length > 2) {
+      return parts.slice(-2).join('.');
+    }
+    return hostname;
   } catch (e) {
     return null;
   }
 }
 
-function getExtFromContentType(ct) {
-  if (!ct) return null;
-  ct = ct.toLowerCase();
-  if (ct.includes('video/mp4')) return '.mp4';
-  if (ct.includes('video/')) return '.mp4';
-  if (ct.includes('audio/mpeg') || ct.includes('audio/mp3')) return '.mp3';
-  if (ct.includes('audio/')) return '.mp3';
-  return null;
+function getDefaultCookie(domain) {
+  const domainEntry = supportedDomains.find(entry => entry.domain === domain);
+  return domainEntry ? domainEntry.cookieFile : null;
 }
 
-async function download({ url, message, event }) {
+function parseArgs(args) {
+  const params = {};
+  args.forEach((arg, i) => {
+    if (arg.startsWith('--')) {
+      const key = arg.slice(2).toLowerCase();
+      const value = args[i + 1];
+      switch (key) {
+        case 'maxsize':
+        case 'ms':
+        case 'fs':
+          if (!isNaN(Number(value))) params.filesize = Number(value);
+          break;
+        case 'type':
+        case 'format':
+        case 'media':
+        case 'f':
+          if (['video', 'audio'].includes(value.toLowerCase())) {
+            params.format = value.toLowerCase();
+          }
+          break;
+        case 'cookie':
+        case 'cookies':
+        case 'c':
+          const cookiePath = path.join(process.cwd(), value);
+          if (fs.existsSync(cookiePath)) {
+            params.cookies = fs.readFileSync(cookiePath, 'utf-8');
+          }
+          break;
+        default:
+          break;
+      }
+    }
+  });
+  return params;
+}
+
+async function download({ url, params, message, event }) {
   try {
-    const res = await axios.get(`https://free-goat-api.onrender.com/alldl?url=${encodeURIComponent(url)}`, {
-      timeout: 15000
-    });
-    const data = res.data;
-
-    if (!data?.status) {
-      await message.reply('Cannot download this link for now.');
-      return;
-    }
-
-    const streamUrl = data?.links?.hd || data?.links?.sd || data?.links?.mp3;
-    if (!streamUrl) {
-      await message.reply('No downloadable stream found.');
-      return;
-    }
-
-    const resp = await axios.get(streamUrl, {
-      responseType: 'stream',
-      timeout: 30000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
-        'Referer': streamUrl
-      },
-      maxRedirects: 5,
-      validateStatus: s => s >= 200 && s < 400
-    });
-    const stream = resp.data;
-    const contentType = resp.headers['content-type'];
-    const urlExt = (() => {
-      try { return path.extname(new URL(streamUrl).pathname); } catch { return ''; }
-    })();
-    const ext = getExtFromContentType(contentType) || (urlExt || '.mp4');
-    const tmpFile = path.join(os.tmpdir(), `alldl_${Date.now()}${ext}`);
-
-    await pipeline(stream, fs.createWriteStream(tmpFile));
-
     const domain = getMainDomain(url);
-
-    try {
-      await message.reply({
-        body: `Title: ${data.title}`,
-        attachment: fs.createReadStream(tmpFile)
-      });
-      message.reaction('✅', event.messageID);
-    } finally {
-      fs.unlink(tmpFile).catch(() => {});
+    
+    if (!params.cookies) {
+      const defaultCookieFile = getDefaultCookie(domain);
+      if (defaultCookieFile) {
+        const cookiePath = path.join(process.cwd(), defaultCookieFile);
+        if (fs.existsSync(cookiePath)) {
+          params.cookies = fs.readFileSync(cookiePath, 'utf-8');
+        }
+      }
     }
-
+    
+    if (!params.filesize) {
+      params.filesize = 25;
+    }
+    
+    const requestBody = {
+      url,
+      ...(params.format && { format: params.format }),
+      ...(params.filesize && { filesize: params.filesize }),
+      ...(params.cookies && { cookies: params.cookies }),
+    };
+    
+    const apiUrl = (await axios.get('https://raw.githubusercontent.com/Tanvir0999/stuffs/refs/heads/main/raw/addresses.json')).data.megadl;
+    const response = await axios.post(apiUrl, requestBody);
+    const data = response.data;
+    
+    await message.reply({
+      body: `• ${data.title.length > 50 ? data.title.slice(0, 50) + "..." : data.title}\n• Duration: ${data.duration}\n• Upload Date: ${data.upload_date || '--'}\n• Source: ${data.source}\n\n• Stream: ${data.url}`,
+      attachment: await global.utils.getStreamFromUrl(data.url),
+    });
+    
+    message.reaction('✅', event.messageID);
   } catch (error) {
     message.reaction('❌', event.messageID);
-    try {
-      await message.reply('Download failed. Please try another link.');
-    } catch {}
+    return { repay: 50 };
   }
 }
 
 module.exports = {
   config: {
     name: 'download',
-    aliases: ['dl', 'fbdl', 'ytdl', 'instadl', 'alldl'],
-    version: '2.1',
-    author: 'Neoaz ゐ',
+    aliases: ['downloader', 'megadl', 'fb', 'fbdl', 'facebook', 'insta', 'instadl', 'instagram', 'yt', 'ytdl'],
+    version: '2.3',
+    author: 'tanvir',
     countDown: 5,
     role: 0,
-    longDescription: 'Download media automatically or via command using Free Goat API.',
+    longDescription: 'Download videos or audios from supported platforms. Supports parameters for file size, format, and cookies.',
     category: 'media',
     guide: {
-      en: '{pn} [URL] or reply to a link'
-    }
+      en: {
+        body: `{pn} [URL] [optional parameters]\n\n
+  # Examples:
+     • {pn} https://facebook.com/video --fs 100 --type audio --c cookies.txt\n
+     • {pn} https://youtube.com/watch?v=abc --maxsize 200 --format video\n
+     • {pn} https://instagram.com/p/xyz\n\n
+  # Parameters:
+     • URL: The video or audio URL from a supported platform.\n
+     • --fs or --maxsize: Maximum file size in MB (default: 25).\n
+     • --type or --format: Download type ('video' or 'audio', optional).\n
+     • --c or --cookie: Path to a cookie file (defaults based on platform).`,
+      },
+    },
   },
-
-  onStart: async function ({ message, args, event, threadsData, role }) {
-    if (['on', 'off'].includes(args[0])) {
-      if (role < 1) return message.reply('Access denied.');
-      const choice = args[0] === 'on';
-      const gcData = (await threadsData.get(event.threadID, "data")) || {};
-      await threadsData.set(event.threadID, { data: { ...gcData, autoDownload: choice } });
-      return message.reply(`Auto-download: ${choice ? 'Enabled' : 'Disabled'}`);
-    }
-
-    let url = args.find(arg => /^https?:\/\//.test(arg));
-    
-    if (!url && event.type === "message_reply") {
-      const replyBody = event.messageReply.body;
-      const match = replyBody.match(/https?:\/\/[^\s]+/);
-      if (match) url = match[0];
-    }
-
-    if (!url) return message.reply('Please provide or reply to a valid link.');
-
-    const domain = getMainDomain(url);
-    if (!supportedDomains.some(d => d.domain === domain)) {
-      return message.reply('Unsupported platform.');
-    }
-
-    message.reaction('⏳', event.messageID);
-    await download({ url, message, event });
-  },
-
-  onChat: async function ({ event, message, threadsData }) {
-    if (event.senderID === global.botID || !event.body) return;
-    
-    const threadData = await threadsData.get(event.threadID);
-    if (!threadData?.data?.autoDownload) return;
-
-    const urlRegex = /https?:\/\/[^\s]+/;
-    const match = event.body.match(urlRegex);
-    
-    if (match) {
-      const url = match[0];
-      const domain = getMainDomain(url);
-      
-      if (supportedDomains.some(d => d.domain === domain)) {
-        const prefix = await global.utils.getPrefix(event.threadID);
-        if (event.body.startsWith(prefix)) return;
-
-        message.reaction('⏳', event.messageID);
-        await download({ url, message, event });
+  
+  onStart: async function({ message, args, event, threadsData, role }) {
+    if (args[0] === 'chat' && (args[1] === 'on' || args[1] === 'off') || args[0] === 'on' || args[0] === 'off') {
+      if (role < 1) {
+        return message.reply('You do not have permission to change auto-download settings.');
       }
+      const choice = args[0] === 'on' || args[1] === 'on';
+      const gcData = await threadsData.get(event.threadID, "data");
+      await threadsData.set(event.threadID, { data: { ...gcData, autoDownload: choice } });
+      return message.reply(`Auto-download has been turned ${choice ? 'on' : 'off'} for this group.`);
     }
-  }
+    
+    const url = args.find(arg => /^https?:\/\//.test(arg));
+    if (!url) {
+      return message.reply('Please provide a valid URL to download.');
+    }
+    
+    const domain = getMainDomain(url);
+    const isSupported = supportedDomains.some(entry => entry.domain === domain);
+    if (!isSupported) {
+      return message.reply('This platform is not enabled/supported. Please ask Admin to request support of this platform.');
+    }
+    
+    const paramArgs = args.filter(arg => arg !== url);
+    const params = parseArgs(paramArgs);
+    
+    message.reaction('⏳', event.messageID);
+    await download({ url, params, message, event });
+  },
+  
+  onChat: async function({ event, message, threadsData }) {
+    const threadData = await threadsData.get(event.threadID);
+    if (!threadData.data.autoDownload || threadData.data.autoDownload === false || event.senderID === global.botID) {
+      return;
+    }
+    
+    try {
+      const urlRegex = /https:\/\/[^\s]+/;
+      const match = event.body.match(urlRegex);
+      if (match) {
+        const url = match[0];
+        const domain = getMainDomain(url);
+        
+        const isSupported = supportedDomains.some(entry => entry.domain === domain);
+        if (isSupported) {
+          const prefix = await global.utils.getPrefix(event.threadID);
+          if (event.body.startsWith(prefix)) return;
+          
+          message.reaction('⏳', event.messageID);
+          const params = {};
+          await download({ url, params, message, event });
+        }
+      }
+    } catch (error) {
+      message.reaction('', event.messageID);
+      console.error('onChat Error:', error);
+    }
+  },
 };

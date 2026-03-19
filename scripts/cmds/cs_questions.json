@@ -1,0 +1,15 @@
+{
+  "easy": [
+    { "q": "What does CPU stand for?", "a": "Central Processing Unit", "options": ["Computer Power Unit", "Central Processing Unit", "Control Program Unit", "Central Program Utility"] },
+    { "q": "Which device is an input device?", "a": "Keyboard", "options": ["Monitor", "Printer", "Keyboard", "Speaker"] }
+  ],
+  "mid": [
+    { "q": "Which language is used for web structure?", "a": "HTML", "options": ["Python", "HTML", "C++", "Java"] }
+  ],
+  "hard": [
+    { "q": "What is the time complexity of binary search?", "a": "O(log n)", "options": ["O(n)", "O(n²)", "O(log n)", "O(1)"] }
+  ],
+  "hell": [
+    { "q": "What does ACID stand for?", "a": "Atomicity, Consistency, Isolation, Durability", "options": ["Access, Control, Integrity, Data", "Atomicity, Consistency, Isolation, Durability", "Accuracy, Consistency, Indexing, Durability", "Atomicity, Control, Isolation, Data"] }
+  ]
+}

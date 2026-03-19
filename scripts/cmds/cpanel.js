@@ -34,7 +34,7 @@ function getRandomInt(min, max) {
 
 function drawGlowCircle(ctx, x, y, radius, colors, glowColor, glowSize = 30) {
     ctx.save();
-    
+
     for (let i = glowSize; i > 0; i--) {
         const alpha = (1 - i / glowSize) * 0.15;
         ctx.beginPath();
@@ -42,23 +42,23 @@ function drawGlowCircle(ctx, x, y, radius, colors, glowColor, glowSize = 30) {
         ctx.fillStyle = glowColor.replace(')', `, ${alpha})`).replace('rgb', 'rgba');
         ctx.fill();
     }
-    
+
     const gradient = ctx.createRadialGradient(x - radius * 0.3, y - radius * 0.3, 0, x, y, radius);
     gradient.addColorStop(0, colors[0]);
     gradient.addColorStop(0.7, colors[1]);
     gradient.addColorStop(1, colors[2] || colors[1]);
-    
+
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fillStyle = gradient;
     ctx.fill();
-    
+
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.strokeStyle = 'rgba(255,255,255,0.3)';
     ctx.lineWidth = 2;
     ctx.stroke();
-    
+
     ctx.beginPath();
     ctx.arc(x, y, radius - 5, -Math.PI * 0.7, -Math.PI * 0.3);
     const shineGradient = ctx.createLinearGradient(x - radius, y - radius, x, y);
@@ -67,20 +67,20 @@ function drawGlowCircle(ctx, x, y, radius, colors, glowColor, glowSize = 30) {
     ctx.strokeStyle = shineGradient;
     ctx.lineWidth = 3;
     ctx.stroke();
-    
+
     ctx.restore();
 }
 
 function drawProgressArc(ctx, x, y, radius, progress, bgColor, fillColor, lineWidth = 8) {
     ctx.save();
-    
+
     ctx.beginPath();
     ctx.arc(x, y, radius, -Math.PI * 0.75, Math.PI * 0.75);
     ctx.strokeStyle = bgColor;
     ctx.lineWidth = lineWidth;
     ctx.lineCap = 'round';
     ctx.stroke();
-    
+
     if (progress > 0) {
         const sweepAngle = (Math.PI * 1.5) * (progress / 100);
         ctx.beginPath();
@@ -90,32 +90,32 @@ function drawProgressArc(ctx, x, y, radius, progress, bgColor, fillColor, lineWi
         ctx.lineCap = 'round';
         ctx.stroke();
     }
-    
+
     ctx.restore();
 }
 
 function drawConnectingLine(ctx, x1, y1, x2, y2, color) {
     ctx.save();
-    
+
     const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
     gradient.addColorStop(0, 'rgba(255,255,255,0.05)');
     gradient.addColorStop(0.5, color);
     gradient.addColorStop(1, 'rgba(255,255,255,0.05)');
-    
+
     ctx.beginPath();
     ctx.moveTo(x1, y1);
     ctx.lineTo(x2, y2);
     ctx.strokeStyle = gradient;
     ctx.lineWidth = 2;
     ctx.stroke();
-    
+
     const dotX = x1 + (x2 - x1) * 0.3;
     const dotY = y1 + (y2 - y1) * 0.3;
     ctx.beginPath();
     ctx.arc(dotX, dotY, 4, 0, Math.PI * 2);
     ctx.fillStyle = color;
     ctx.fill();
-    
+
     ctx.restore();
 }
 
@@ -126,11 +126,11 @@ function drawIcon(ctx, x, y, size, type, color = 'rgba(255,255,255,0.9)') {
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    
+
     const scale = size / 24;
     ctx.translate(x - 12 * scale, y - 12 * scale);
     ctx.scale(scale, scale);
-    
+
     switch(type) {
         case 'server':
             ctx.beginPath();
@@ -350,17 +350,17 @@ async function generateCpanelCard(botName = "GOAT BOT") {
         const angle = (Math.PI * 2 / 12) * index - Math.PI / 2;
         const x = centerX + Math.cos(angle) * outerRadius;
         const y = centerY + Math.sin(angle) * outerRadius;
-        
+
         const innerEdgeX = centerX + Math.cos(angle) * 160;
         const innerEdgeY = centerY + Math.sin(angle) * 160;
         const outerEdgeX = centerX + Math.cos(angle) * (outerRadius - circleRadius - 10);
         const outerEdgeY = centerY + Math.sin(angle) * (outerRadius - circleRadius - 10);
-        
+
         drawConnectingLine(ctx, innerEdgeX, innerEdgeY, outerEdgeX, outerEdgeY, circle.glow.replace('rgb', 'rgba').replace(')', ', 0.4)'));
     });
 
     const centerRadius = 150;
-    
+
     ctx.save();
     for (let i = 50; i > 0; i--) {
         const alpha = (1 - i / 50) * 0.2;
@@ -370,23 +370,23 @@ async function generateCpanelCard(botName = "GOAT BOT") {
         ctx.fill();
     }
     ctx.restore();
-    
+
     const centerGradient = ctx.createRadialGradient(centerX - 40, centerY - 40, 0, centerX, centerY, centerRadius);
     centerGradient.addColorStop(0, '#4f46e5');
     centerGradient.addColorStop(0.5, '#3730a3');
     centerGradient.addColorStop(1, '#1e1b4b');
-    
+
     ctx.beginPath();
     ctx.arc(centerX, centerY, centerRadius, 0, Math.PI * 2);
     ctx.fillStyle = centerGradient;
     ctx.fill();
-    
+
     ctx.beginPath();
     ctx.arc(centerX, centerY, centerRadius, 0, Math.PI * 2);
     ctx.strokeStyle = 'rgba(255,255,255,0.3)';
     ctx.lineWidth = 3;
     ctx.stroke();
-    
+
     ctx.beginPath();
     ctx.arc(centerX, centerY, centerRadius + 10, 0, Math.PI * 2);
     ctx.strokeStyle = 'rgba(99, 102, 241, 0.5)';
@@ -394,21 +394,21 @@ async function generateCpanelCard(botName = "GOAT BOT") {
     ctx.setLineDash([10, 10]);
     ctx.stroke();
     ctx.setLineDash([]);
-    
+
     ctx.save();
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 36px BeVietnamPro';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('∆', centerX, centerY - 45);
-    
+
     ctx.font = 'bold 32px BeVietnamPro';
-    ctx.fillText('NeoKEX AI', centerX, centerY);
-    
+    ctx.fillText('CHARLESMK AI', centerX, centerY);
+
     ctx.font = '600 16px BeVietnamPro';
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
     ctx.fillText('CONTROL PANEL', centerX, centerY + 35);
-    
+
     ctx.font = '600 14px BeVietnamPro';
     ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.fillText('Hosting Dashboard', centerX, centerY + 60);
@@ -418,25 +418,25 @@ async function generateCpanelCard(botName = "GOAT BOT") {
         const angle = (Math.PI * 2 / 12) * index - Math.PI / 2;
         const x = centerX + Math.cos(angle) * outerRadius;
         const y = centerY + Math.sin(angle) * outerRadius;
-        
+
         drawGlowCircle(ctx, x, y, circleRadius, circle.colors, circle.glow, 25);
-        
+
         if (circle.progress !== undefined) {
             drawProgressArc(ctx, x, y, circleRadius + 12, circle.progress, 'rgba(0,0,0,0.3)', '#ffffff', 6);
         }
-        
+
         drawIcon(ctx, x, y - 30, 28, circle.icon);
-        
+
         ctx.save();
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 11px BeVietnamPro';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(circle.title, x, y - 5);
-        
+
         ctx.font = 'bold 24px BeVietnamPro';
         ctx.fillText(String(circle.value), x, y + 22);
-        
+
         ctx.font = '600 12px BeVietnamPro';
         ctx.fillStyle = 'rgba(255,255,255,0.8)';
         ctx.fillText(circle.sub, x, y + 45);
@@ -448,7 +448,7 @@ async function generateCpanelCard(botName = "GOAT BOT") {
     ctx.font = '600 14px BeVietnamPro';
     ctx.textAlign = 'center';
     ctx.fillText(`Last Updated: ${new Date().toLocaleString()}`, centerX, height - 40);
-    
+
     ctx.font = '600 12px BeVietnamPro';
     ctx.fillStyle = 'rgba(255,255,255,0.3)';
     ctx.fillText('Real-time Monitoring System', centerX, height - 20);
@@ -462,7 +462,7 @@ module.exports = {
         name: "cpanel",
         aliases: ["hosting", "server", "hostinfo", "panel"],
         version: "2.0.0",
-        author: "Neoaz ゐ",
+        author: "Neoaz ゐ | Charles MK",
         countDown: 10,
         role: 0,
         description: "Display hosting information with beautiful circular visual interface",
@@ -473,7 +473,7 @@ module.exports = {
     onStart: async function({ message, event }) {
         try {
             message.reaction("⏳", event.messageID);
-            
+
             if (!fs.existsSync(cacheDir)) {
                 fs.mkdirpSync(cacheDir);
             }
@@ -481,7 +481,7 @@ module.exports = {
             const botName = global.GoatBot?.config?.nickNameBot || "GOAT BOT";
             const buffer = await generateCpanelCard(botName);
             const imagePath = path.join(cacheDir, `cpanel_${Date.now()}.png`);
-            
+
             fs.writeFileSync(imagePath, buffer);
 
             await message.reply({
@@ -490,7 +490,7 @@ module.exports = {
             });
 
             message.reaction("✅", event.messageID);
-            
+
             setTimeout(() => {
                 if (fs.existsSync(imagePath)) {
                     fs.unlinkSync(imagePath);
@@ -504,4 +504,3 @@ module.exports = {
         }
     }
 };
-              

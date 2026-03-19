@@ -1,0 +1,4 @@
+[
+  { "id": 5, "name": "Health Potion", "price": 2000, "effect": "Heals 50 HP", "type": "potion" },
+  { "id": 6, "name": "Energy Orb", "price": 50000, "effect": "Skip 4h Rest", "type": "orb" }
+]

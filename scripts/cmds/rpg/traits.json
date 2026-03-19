@@ -1,0 +1,6 @@
+[
+  { "name": "Titan's Blood", "effect": "HP +50, STR +5", "desc": "You are descended from giants. Your skin is like iron." },
+  { "name": "Shadow Walker", "effect": "SPD +3, DEX +2", "desc": "You move through the world like a ghost. Hard to hit." },
+  { "name": "Cursed Genius", "effect": "INT +10, HP -20", "desc": "You have vast knowledge, but your body is frail." },
+  { "name": "Golden Child", "effect": "LUK +15", "desc": "The universe simply loves you. Everything goes your way." }
+]
