@@ -5,7 +5,7 @@ module.exports = {
     version: "1.5",
     author: "CharlesMK",
     countDown: 5,
-    role: 0,
+    role: 2,
     longDescription: "Returns the link to the official, updated fork of the bot's repository.",
     category: "system",
     guide: { en: "{pn}" }
